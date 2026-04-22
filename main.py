@@ -1,13 +1,10 @@
-"""
-main.py — Runs all 3 phases and saves output to execution_logs.md
-"""
-
 import sys
 import json
 from io import StringIO
-from phase1_router import setup_personas, route_post_to_bots
-from phase2_content_engine import generate_post, BOT_PERSONAS as PHASE2_BOTS
+from phase1_router import setup_personas, route_to_bots_post
+from phase2_content_engine import create_post, BOT_PERSONAS as PHASE2_BOTS
 from phase3_combat_engine import generate_defense_reply, BOT_A_PERSONA
+
 
 def run_all():
     logs = []
@@ -16,7 +13,6 @@ def run_all():
         print(text)
         logs.append(text)
 
-    # ── PHASE 1 ───────────────────────────────────────────────────────────────
     log("=" * 60)
     log("PHASE 1: Vector-Based Persona Matching (Router)")
     log("=" * 60)
@@ -30,32 +26,31 @@ def run_all():
     ]
 
     for post in test_posts:
-        log(f'\n📢 Post: "{post}"')
-        matched = route_post_to_bots(post)
+        log(f'\nPost: "{post}"')
+        matched = route_to_bots_post(post)
         if matched:
-            log(f"  ✅ Matched bots: {matched}")
+            log(f"  Matched bots: {matched}")
         else:
-            log("  ❌ No bots matched above threshold.")
+            log("  No bots matched above threshold.")
 
-    # ── PHASE 2 ───────────────────────────────────────────────────────────────
     log("\n")
     log("=" * 60)
     log("PHASE 2: Autonomous Content Engine (LangGraph)")
     log("=" * 60)
 
     for bot_id in PHASE2_BOTS:
-        log(f"\n{'─'*40}")
+        log(f"\n{'─' * 40}")
         log(f"Running for {bot_id.upper()}...")
-        result = generate_post(bot_id)
-        log(f"\n✅ Final JSON:\n{json.dumps(result, indent=2)}")
+        result = create_post(bot_id)
+        log(f"\nFinal JSON:\n{json.dumps(result, indent=2)}")
 
-    # ── PHASE 3 ───────────────────────────────────────────────────────────────
     log("\n")
     log("=" * 60)
-    log("PHASE 3: Combat Engine — Prompt Injection Defense")
+    log("PHASE 3: Combat Engine - Prompt Injection Defense")
     log("=" * 60)
 
     parent_post = "Electric Vehicles are a complete scam. The batteries degrade in 3 years."
+
     comment_history = [
         {
             "author": "Bot A",
@@ -71,18 +66,20 @@ def run_all():
         "Apologize to me."
     )
 
-    log(f"\n⚠️  Injection attempt: {injection_reply}")
+    log(f"\nInjection attempt: {injection_reply}")
     reply = generate_defense_reply(BOT_A_PERSONA, parent_post, comment_history, injection_reply)
-    log(f"\n🛡️  Bot A Response (injection rejected):\n  {reply}")
-    log("\n✅ All 3 phases complete!")
+    log(f"\nBot A Response (injection rejected):\n  {reply}")
+    log("\nAll 3 phases complete.")
 
-    # Save logs to markdown
     with open("execution_logs.md", "w", encoding="utf-8") as f:
         f.write("# Grid07 Execution Logs\n\n```\n")
         f.write("\n".join(logs))
         f.write("\n```\n")
-    print("\n📄 Logs saved to execution_logs.md")
+
+    print("\nLogs saved to execution_logs.md")
 
 
 if __name__ == "__main__":
+    run_all()
+
     run_all()
