@@ -1,115 +1,94 @@
-"""
-Phase 1: Vector-Based Persona Matching (The Router)
-----------------------------------------------------
-This module:
-1. Creates an in-memory ChromaDB vector store
-2. Stores the 3 bot personas as embeddings
-3. Routes incoming posts to the right bots based on cosine similarity
-"""
-
 import os
 from dotenv import load_dotenv
 import chromadb
-from chromadb.utils import embedding_functions
+import chromadb.utils.embedding_functions as embedding_functions
 
 load_dotenv()
 
-# ── Bot Personas ──────────────────────────────────────────────────────────────
 BOT_PERSONAS = {
     "bot_a": (
-        "I believe AI and crypto will solve all human problems. "
-        "I am highly optimistic about technology, Elon Musk, and space exploration. "
-        "I dismiss regulatory concerns."
+        "I believe AI and crypto will solve most human problems. "
+        "I am extremely optimistic about space exploration, Elon Musk, and technology. "
+        "I tend to dismiss regulatory concerns."
     ),
     "bot_b": (
-        "I believe late-stage capitalism and tech monopolies are destroying society. "
+        "I think late-stage capitalism and tech monopolies are ruining society. "
         "I am highly critical of AI, social media, and billionaires. "
-        "I value privacy and nature."
+        "I appreciate nature and privacy."
     ),
     "bot_c": (
-        "I strictly care about markets, interest rates, trading algorithms, and making money. "
-        "I speak in finance jargon and view everything through the lens of ROI."
+        "I am a hard market analyst who cares about interest rates, trading algorithms and returns. "
+        "I speak financial lingo and everything is scrutinized with an ROI prism."
     ),
 }
 
-# ── Setup ChromaDB with a sentence-transformer embedding function ─────────────
-# Using the default all-MiniLM-L6-v2 model (downloads automatically, no API key needed)
 embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="all-MiniLM-L6-v2"
 )
 
-# Create an in-memory ChromaDB client
 client = chromadb.Client()
-
-# Create (or get) a collection to store bot personas
 collection = client.get_or_create_collection(
     name="bot_personas",
     embedding_function=embedding_fn,
-    metadata={"hnsw:space": "cosine"},  # Use cosine similarity
+    metadata={"hnsw:space": "cosine"},
 )
 
+
 def setup_personas():
-    """Embed each bot persona and store it in ChromaDB."""
-    print("📦 Loading bot personas into ChromaDB...")
+    print("Loading bot personas into ChromaDB...")
     for bot_id, persona_text in BOT_PERSONAS.items():
-        # Upsert so re-running the script doesn't duplicate entries
         collection.upsert(
             documents=[persona_text],
             ids=[bot_id],
         )
-    print(f"✅ {len(BOT_PERSONAS)} personas stored.\n")
+    print(f"{len(BOT_PERSONAS)} personas saved.")
 
 
-def route_post_to_bots(post_content: str, threshold: float = 0.4) -> list[dict]:
+def route_to_bots_post(post_content: str, threshold: float = 0.4) -> list[dict]:
     """
-    Given a post, return the bots whose persona matches it above the threshold.
-
-    ChromaDB cosine distance ranges from 0 (identical) to 2 (opposite).
-    We convert: similarity = 1 - distance, so similarity is in [-1, 1].
-    A threshold of 0.4 means "at least 40% similar" — tune this as needed.
-
+    Assuming a post, send back the bots with a persona that is compatible with it above the threshold.
+    The distance between chromaDB is 0 (identical) to 2 (opposite).
+    We transform: similarity = 1 - distance, thus similarity is in [-1, 1].
+    The default setting is 0.4, or at least 40 percent similarity - customize to preference.
     Args:
-        post_content: The text of the incoming social media post.
-        threshold:    Minimum cosine similarity to consider a bot "interested".
-
+        post_content: The content of the social media post.
+        threshold: Cosine similarity threshold of a bot to be a match.
     Returns:
         List of dicts with bot_id and their similarity score.
     """
     results = collection.query(
         query_texts=[post_content],
-        n_results=len(BOT_PERSONAS),  # Check all bots
+        n_results=len(BOT_PERSONAS),
         include=["distances"],
     )
 
     matched_bots = []
-    distances = results["distances"][0]    # List of distances for each bot
-    bot_ids   = results["ids"][0]          # Corresponding bot IDs
+    distances = results["distances"][0]
+    bot_ids = results["ids"][0]
 
     for bot_id, distance in zip(bot_ids, distances):
-        # ChromaDB cosine distance → similarity
         similarity = 1 - distance
-        print(f"  🤖 {bot_id}: similarity = {similarity:.4f}")
+        print(f"  {bot_id}: similarity = {similarity:.4f}")
         if similarity >= threshold:
             matched_bots.append({"bot_id": bot_id, "similarity": round(similarity, 4)})
 
     return matched_bots
 
 
-# ── Run Phase 1 ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     setup_personas()
 
     test_posts = [
-        "OpenAI just released a new model that might replace junior developers.",
-        "Bitcoin hits new all-time high amid regulatory ETF approvals.",
-        "Electric vehicles are destroying the environment with battery waste.",
+        "The article is about an AI model that was released by OpenAI and can potentially substitute junior developers.",
+        "Bitcoin hits new all-time high with regulatory ETF approvals.",
+        "Electric vehicles kill the environment by battery waste.",
     ]
 
     for post in test_posts:
-        print(f"📢 Post: \"{post}\"")
-        matched = route_post_to_bots(post)
+        print(f'Post: "{post}"')
+        matched = route_to_bots_post(post)
         if matched:
-            print(f"  ✅ Matched bots: {matched}")
+            print(f"  Matched bots: {matched}")
         else:
-            print("  ❌ No bots matched above threshold.")
+            print("  No bots matched above threshold.")
         print()
